@@ -1,13 +1,12 @@
-CXX		  := g++
-CXX_FLAGS := -Wall -Wextra -std=c++17 -ggdb
+C		  := gcc
+C_FLAGS := 
 
 BIN		:= bin
 SRC		:= src
 INCLUDE	:= include
-LIB		:= lib
 
-LIBRARIES	:=
-EXECUTABLE	:= main
+
+EXECUTABLE	:= pa1.out
 
 
 all: $(BIN)/$(EXECUTABLE)
@@ -16,8 +15,8 @@ run: clean all
 	clear
 	./$(BIN)/$(EXECUTABLE)
 
-$(BIN)/$(EXECUTABLE): $(SRC)/*.cpp
-	$(CXX) $(CXX_FLAGS) -I$(INCLUDE) -L$(LIB) $^ -o $@ $(LIBRARIES)
+$(BIN)/$(EXECUTABLE): $(SRC)/*.c
+	$(C) $(C_FLAGS) $^ -o $@
 
 clean:
 	-rm $(BIN)/*
