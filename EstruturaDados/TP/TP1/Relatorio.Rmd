@@ -1,0 +1,588 @@
+---
+title: "**Trabalho Prático 1 - Ordenador Universal**"
+author: "Isabelle Fernandes de Oliveira Sannier (2021432208)"
+date: "25/05/2025"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+```{r include=FALSE}
+library(ggplot2)
+library(tidyr)
+library(scales)
+library(tidyverse)
+library(patchwork)
+```
+# 1. Introdução
+
+Neste trabalho, foi implementado e analisado um algoritmo híbrido de ordenação baseado em Quicksort com inserção para partições pequenas, visando otimizar o desempenho computacional. O problema abordado consiste em ordenar um vetor de elementos com chaves numéricas, utilizando técnicas que minimizam comparações e movimentações. A solução proposta consiste em uma implementação que combina a eficiência do Quicksort para grandes partições com a simplicidade e eficiência do Insertion Sort para partições pequenas.
+
+# 2. Método
+
+A implementação envolve várias classesm mas serão comentadas apenas as principais abaixo:
+
+**LimiarParticao:** Responsável por determinar o tamanho ideal da partição mínima na qual o algoritmo Quicksort passe a odernar pelo Insertion Sort. Implementa uma busca iterativa, testando diferentes tamanhos de partição no vetor, computando custos ponderados, e ajustando a faixa de busca até convergência. Para conseguir alcançar a convergência e definir um tamanho limite de partição, o método da classe DeterminaLimiarParticao adota a estratégia de varredura, ao dividir o tamanho do vetor em seis faixas e, para cada faixa, utlizá-la como tamanho da partição. Para cada faixa, computa o custo da ordenação e depois pega 3 tamanhos de partição cujo os custos foram os menores. E atua recursivamente até que o critério de parada fosse atingido: o número de faixas fosse menor que 5 ou a diferença do custo entre a partiçao min e a particao max fosse menor que um valor pré-determinado.
+
+**LimiarQuebra:** Define o número mínimo de quebras no vetor onde é melhor usar o QuicksortIns ao invés do Insertion. Similarmente ao método DeterminaLimiarParticao, o método DeterminaLimiarQuebra dessa classe adota a mesma estraégia e executa múltiplas ordenações com diferentes números de quebras e mede o custo para determinar o valor de quebras onde, se superior a ela, odernada pelo QuicksortIns e inferior a ela, ordena pelo Insertion Sort.
+
+**Classe Item:** Estrutura de dado que representa um elemento com uma chave (string numérica) e um payload (informação associada), incluindo operadores de comparação sobrecarregados para facilitar a ordenação dos itens no vetor.
+
+**Classe Vetor:** Estrutura de dado utilizada que armazena Itens, juntamente com contadores para chamadas recursivas, comparações e movimentações para computar os custos de ordenaçao das feitos pelos dois métodos principais DeterminaLimiarParticao e DeterminaLimiarQuebra.
+
+**Classes QuicksortIns** Implementa o algoritmo híbrido Quicksort com Insertion com contagem de operações, no qual se a partição for menor que um limite, aplica o insertion. Usa o método partition3 para particionamento com pivô mediano e troca de elementos, e o método quickSort3Ins para ordenar recursivamente.
+
+**Insertion:** implementação do Insertion Sort com contagem de operações.
+
+# 3. Análise de Complexidade
+
+## Complexidade Temporal
+
+A complexidade da classe DeterminaLimiarParticao ordena o vetor pelo QuickSortIns dentro de um `for` que se repete aproximadamente 6 vezes. Para um vetor de tamanho n, é aproximadamente $O(n \log(n))$ no caso médio. Como esse processo é executado dentro do `ẁhile`, esse processo é repetido k vezes até que o critério de parada seja atingido. Normalmente o número de iterações k não é grande. Assim, para determinar o limite de partição, a complexidade assíntótica é: $O(k \cdot 6 \cdot n \log(n))$.
+
+A complexidade da classe DeterminaLimiarQuebra induz a quebra no vetor em complexidade $O(t)$, onde t é o número de quebras que é sempre menor ou igual a n-1 o tamanho do vetor. Depois, ordena o vetor pelo QuickSortIns com complexidade de $O(n \log(n))$ para o caso médio. Depois ela ordena o mesmo vetor com o Insertion com complexidade $O(n^2)$. Isso é feito dentro de um `for` que de 1 até 6 aproximandamente. Por fim, tudo isso é feito iterativamente k vezes até que o critério de parada seja satisfeito. Assim, a complexidade assintótica para determinar o limiar de partição é: $O(k \cdot 6 \cdot (t + n \log(n) + n^2))$
+
+Asintoticamente a complexidade de determinar os limiares é:
+
+$$
+O(k \cdot 6 \cdot n \log(n)) + O(k \cdot 6 \cdot (t + n \log(n) + n^2))
+$$
+Porém, como t é sempre menor que n e k é constante, o custo é dominado assintoticamente por:
+
+$$
+O(n^2)
+$$
+Por fim, o Ordenador Universal atua entre os algorítmos QuickSortIns e Insertion, escolhendo aquele que tiver menor custo. Como o custo depende dos limiares já definidos, ele opera assintoticamente como:
+
+$$
+O(min(n \log(n),n^2))
+$$
+   
+## Complexidade Espacial
+
+Para determinar o limiar de partição, é usado um vetor cópia do original para que não se acumule contagens de comparação, chamadas e movimentações. Logo a complexidade de espaço é $O(2 \cdot n)$ em que têm-se o vetor original e o vetor de cópia.
+
+Para determinar o limiar de quebras, são usados trẽs vetores de cópia: 1 para induzir as quebras no vetor ordenado, 1 para ordenação QuickSortIns e outro para ordenação Insertion. Isso é feito para que não se acumule contagens de comparação, chamadas e movimentações. Logo a complexidade de espaço é $O(4 \cdot n)$ em que têm-se o vetor original e três vetores de cópias.
+
+Assim a complexidade de espaço para determinar os limiares é $O(2 \cdot n) + O(4 \cdot n)$. Mas, retirando as constantes, assintoticamente é:
+
+$$
+O(n) 
+$$
+   
+# 4. Estratégias de Robustez
+
+Para garantir robustez e tolerância a falhas, foram adotadas as seguintes práticas:
+
+Clonagem Profunda dos Vetores: evita efeitos colaterais entre os testes, prevenindo corrupção de dados durante as ordenações.
+
+Validação dos Parâmetros: as funções de busca dos limiares validam os intervalos de busca para evitar erros como divisão por zero ou índices inválidos.
+
+Programação Defensiva: variáveis internas são inicializadas adequadamente, e os laços de iteração possuem limites controlados para evitar loops infinitos.
+
+Prevenção de falha de memória: A alocação de memória é feita corretamente, impedindo acesso fora dos limites. Além disso, o uso do Valgrind mostra que não há vazamentos de memória.
+
+# 5. Análise Experimental
+
+A análise experimental foi divida em duas partes: a primeira dedicou-se a encontrar os coeficientes da função de custos. A segunda parte, tendo os coeficientes calculados, buscou-se encontrar os limiares de partição e de quebra. Após obter os limiates, aplicou-se o método Ordena, da classe Ordenador Universal e computou o tempo gasto. Em seguida, para o mesmo vetor ordenado pelo algoritmo otimizado, também foi ordenado pelo Quicksort puro mediana de três e Insertion. Dessa forma, para o mesmo vetor, obteve-se três computações de tempo, sendo uma para cada algoritmo: Ordena (algoritmo otimizado), Quicksort mediana de três e Insertion. Abaixo, estão as análises dividas em duas partes, como exposto já foi exposto.
+
+## Parte 1: Computar os coeficientes
+
+Para computar os coeficientes, foi gerado no R 10.000 comandos a serem inseridos no momento de compilar o programa. Cada comando tinha os seguintes valores: tamanho do vetor, tamanho do payload, tamanho da chave. Porém, fixou-se o tamanho da chave em 4 e do payload em 20. Para o tamanho do vetor, foi feito 10.000 sorteios sem reposição dos números de 1 a 20.000.
+
+```{r}
+set.seed(100)
+gerar_comandos_fixo_key_plsz <- function(){
+  experimentos <- 10000 # quantidade de experimentos
+  keysz <- 4  # Tamanho da chave
+  plsz <- 20  # Tamanho do payload
+  vetsz <- sample(x = seq(1,20000), size = experimentos, replace = FALSE) # tamanho do vetor
+  
+  setwd("~/Documentos/Estatistica9Periodo/EstruturaDados/TP/TP1/TP1coeficientes")
+  
+  # Arquivos fonte
+  fontes <- paste(
+    "src/Insertion.cpp", "src/main.cpp", "src/QuicksortIns.cpp", "src/Vetor.cpp"
+  )
+  
+  # Abrir o arquivo comandos.txt para escrita
+  con <- file("comandos.txt", "w")
+  
+  for (k in keysz) {
+    for (p in plsz) {
+      for (v in vetsz) {
+        exe_name <- sprintf("bin/exp.k%d.p%d.v%d", k, p, v)
+        linha <- sprintf(
+          "g++ -std=c++11 -g -Wall -D KEYSZ=%d -D PLSZ=%d -D VETSZ=%d 
+          %s -I./include/ -o %s && ./%s",
+          k, p, v, fontes, exe_name, exe_name
+        )
+        writeLines(linha, con)
+      }
+    }
+  }
+  
+  close(con)
+}
+```
+
+Obtido os 10.000 comandos, eles foram inseridos no terminal, via arquivo .txt e o programa ordenou, para cada experimento, o vetor de itens utilizando o algoritmo QuicksortIns não otimizado com tamanho fixo de limiar de partição igual a 10. Após a ordenação, o programa salvava em um arquivo txt o tamanho do vetor, número de chamadas, número de comparações, número de movimentações, tempo em milissegundos.
+
+**Figura 1: Gráfico tempo(segundos) computado da ordenação por tamanho de vetor**
+
+```{r fig.height = 3, fig.width = 5, echo = FALSE}
+
+setwd("~/Documentos/Estatistica9Periodo/EstruturaDados/TP/TP1/TP1coeficientes")
+
+data <- read.table("resultados.txt", sep =";")
+names(data) <- c("tamanho", "Comparacao", "Movimentacao", "Chamada", "tempo")
+
+data$tempo <- data$tempo / 1000 # transformando o tempo em segundos
+
+ggplot(data, aes(x = tamanho, y = tempo)) +
+  geom_point(color = "#69b3a2", size = 0.1, alpha = 0.6) +
+  scale_x_continuous(limits = c(0, NA), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Tamanho do vetor", color = NULL) +
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    axis.text = element_text(size = 9),
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 9),
+    axis.title.x = element_text(size = 9),
+    axis.title.y = element_text(size = 9)
+  )
+```
+
+Percebe-se que o tamanho do vetor tem uma correlação positiva com o tempo de ordenação.
+
+Abaixo, segue o gráfico que plota para as quantidades de chamadas, movimentações e comparações os respectivos tempos de ordenação.
+   
+**Figura 2: Gráfico Tempo(segundos) computado para quantidades de chamada, movimentações e comparações**
+
+```{r fig.height = 3, fig.width= 5, echo = FALSE}
+
+data <- data[,-1]
+
+data_long <- data %>%
+  pivot_longer(cols = c(Comparacao, Movimentacao, Chamada),
+               names_to = "variavel", values_to = "valor")
+
+ggplot(data_long, aes(x = valor, y = tempo, color = variavel)) +
+  geom_point(size = 0.1, alpha = 0.6) +  # pontos pequenos e semitransparentes
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", color = NULL) +
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    axis.text = element_text(size = 9),
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 9),
+    axis.title.x = element_text(size = 9),
+    axis.title.y = element_text(size = 9)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 3)))
+
+```
+
+A quantidade de chamadas recursivas foi bem menor que as quantidades de comparação e movimentação no vetor. Mas, para as três variáveis, todas tem uma correlação positiva com o tempo.
+
+Em seguida, foi estimados os coeficientes por meio de uma reressão linear múltipla. Decidiu-se trabalhar com o tempo na escala de milissegundo para que os coeficientes não ficasse muito pequenos. 
+
+```{r include=FALSE}
+data$tempo <- data$tempo * 1000 #transformando para milissegundos
+
+beta <- lm(tempo ~ . -1, data = data)
+summary(beta)
+
+comp <- beta$coefficients[[1]]
+mov <- beta$coefficients[[2]]
+call <- beta$coefficients[[3]]
+
+```
+Desse forma, pode-se observar os valores para os parâmetros de comparação, movimentação e chamada, respectivamente, de `r comp`, `r mov` e `r call`.
+
+Apesar do coeficiente movimentação não ser significativo, muito provável dele se colinear à comparação, ele será considerado para compor nossa função de custo.
+
+Assim a função final será:
+
+$$
+f(\text{cmp}, \text{move}, \text{calls}) = a \cdot \text{cmp} + b \cdot \text{move} + c \cdot \text{calls}
+$$
+
+Onde:
+
+- a = 0,0000078130315
+- b = -0,00000017861427
+- c = 0,00045075496
+
+## Parte 2: Encontrar os limiares de partição e quebra e aplicar o algoritmo otmizado vs algoritmos não otimizados
+
+Nessa segunda parte, foi preciso imputar no programa vetores onde fossem variados seu tamanho, tamanho da chave, tamanho do payload e quantidade de quebras. Assim, foram imputadas essas 4 constantes no momento de compilação do programa, seguindo a mesma estratégia adotada na parte 1 descrita acima. Para tanto, foi gerado no R 10.000 qualidade de vetores, onde foram variados o tamanho de:   
+- comprimento do vetor (vetsz): 10.000 sorteios sem reposição dos números de 1 à 20.   
+- tamanho da chave (keysz): 10.000 sorteios com reposição dos números de 1 à 10.   
+- comprimento do payload (plsz): 10.000 sorteios com reposição dos números de 20 à 1.000.   
+- quantidade de quebra do vetor (quebra): 10.000 sorteios sem reposição dos números de 1 à (tamanho do respectivo vetor -1) se tamanho do vetor for até 1000. Senão , números de 1 à 1.000.   
+
+Por fim, executou-se o programa com essas contantes geradas e gravadas em um arquivo .txt.
+
+Foram gerados 10.000 comandos, mas executados, 7.165 experimentos. Isso deveu-se a demora de execução de cada comando.
+
+```{r}
+set.seed(100)
+gerar_comandos_tudo_variavel <- function(){
+  setwd("~/Documentos/Estatistica9Periodo/EstruturaDados/TP/TP1/TP1experimentos")
+  
+  experimentos <- 10000
+  
+  keysz <- sample(x = seq(1,20), size = experimentos, replace = TRUE)  # Tamanho da chave
+  plsz <- sample(x = seq(20,1000), size = experimentos, replace = TRUE) #Tamanho do payload
+  vetsz <- sample(x = seq(10,20000), size = experimentos, replace = FALSE) # Tamanho do vetor de itens
+  quebra <- NULL
+  i <- 1
+  for (vet in vetsz) {
+    if(vet <= 1000)
+      quebra[i] <- sample(x = seq(1,(vet-1)), size = 1)
+    else 
+      quebra[i] <- sample(x = seq(1,1000), size = 1)
+    i <- i + 1;
+  } # crio um for para garantir que o número de quebra nunca ultrapasse o tamanho do vetor
+  # também, limito o numero de quebras no maximo igual a 1000
+  
+  k <- keysz
+  p <- plsz
+  v <- vetsz
+  q <- quebra
+  
+  # Arquivos fonte
+  fontes <- paste(
+    "src/CustoParticao.cpp", "src/CustoQuebra.cpp", "src/Insertion.cpp",
+    "src/LimiarParticao.cpp", "src/LimiarQuebra.cpp", "src/main.cpp",
+    "src/OrdenadorUniversal.cpp", "src/QuicksortIns.cpp", "src/Vetor.cpp"
+  )
+  
+  # Abrir o arquivo comandos.txt para escrita
+  con <- file("comandos2.txt", "w")
+  
+  for (i in 1:experimentos) {
+    exe_name <- sprintf("bin/exp.k%d.p%d.v%d.q%d", k[i], p[i], v[i], q[i])
+    linha <- sprintf(
+      "g++ -std=c++11 -g -Wall -D KEYSZ=%d -D PLSZ=%d -D VETSZ=%d -D 
+      QUEBRA=%d %s -I./include/ -o %s && ./%s",
+      k[i], p[i], v[i], q[i], fontes, exe_name, exe_name
+    )
+    writeLines(linha, con)
+  }
+  close(con)
+  
+}
+```
+
+Importante comentar que o número de quebras foi definido para nunca ser maior que o tamanho do vetor, por isso o uso de `for`. Também, observou-se que ao deixar o número de quebras muito grande, o algoritmo apresentava `Falha de Segmentação`. Ao investigar com o Valgrind a causa, foi apontado haver estouro de pilha devido a recursão profunda. Então, ao limitar o tamanho de quebras, os casos que apresentaram `Falha de Segmentação` diminuíram. Para mitigar esse caso, também definiu-se um limite de pilha `ulimit -s 65532` antes da execução do programa.
+
+Abaixo, segue o gráfico boxsplot comparando os tempos de execução da ordenação sob o mesmo vetor com os diferentes algoritmos. Percebe-se que o algoritmo otimizado Ordenador Universal teve um desempenho superior ao demais, seguido pelo QuickSort e depois, Insertion.
+
+```{r include=FALSE}
+setwd("~/Documentos/Estatistica9Periodo/EstruturaDados/TP/TP1/TP1experimentos")
+data <- read.table("resultados.txt", sep =";")
+names(data) <- c("chave", "payload", "vetor", "quebra", "limiteParticao", 
+                 "limiteQuebra", "chamada_o", "comparacao_o", "movimentacao_o", 
+                 "chamada_q", "comparacao_q", "movimentacao_q",
+                 "chamada_i", "comparacao_i", "movimentacao_i",
+                 "tempo_o", "tempo_q", "tempo_i")
+
+data_o <- data %>% 
+  select(chave, payload, vetor, chamada_o, comparacao_o, movimentacao_o, tempo_o) %>% 
+  rename(chamada = chamada_o,
+         comparacao = comparacao_o,
+         movimentacao = movimentacao_o,
+         tempo = tempo_o) %>% 
+  mutate(algoritmo = "Ordenador\nUniversal"
+  )
+
+data_q <- data %>% 
+  select(chave, payload, vetor, chamada_q, comparacao_q, movimentacao_q, tempo_q) %>% 
+  rename(chamada = chamada_q,
+         comparacao = comparacao_q,
+         movimentacao = movimentacao_q,
+         tempo = tempo_q) %>% 
+  mutate(algoritmo = "QuickSort"
+  )
+
+data_i <- data %>% 
+  select(chave, payload, vetor, chamada_i, comparacao_i, movimentacao_i, tempo_i) %>% 
+  rename(chamada = chamada_i,
+         comparacao = comparacao_i,
+         movimentacao = movimentacao_i,
+         tempo = tempo_i) %>% 
+  mutate(algoritmo = "Insertion"
+  )
+
+data <- bind_rows(data_o, data_q, data_i) %>% 
+  mutate(tempo = tempo/1000)
+
+```
+
+**Figura 3: Boxplot distribuição do tempo por algoritmo de ordenação**
+
+```{r fig.height = 3, echo = FALSE}
+
+g1 <- data %>% 
+ggplot(aes(x = algoritmo, y = tempo)) +
+  geom_boxplot(fill = "#69b3a2", color = "black", size = 0.2, outlier.size = 0.3) +
+  theme_light() +
+  labs(y = "Tempo (em segundo)", x = "",
+       title = "Distribuição do tempo entre\nos três algoritmos") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 9),
+    axis.title = element_text(size = 9),
+    axis.text = element_text(size = 9)
+  )
+
+g2 <- data %>% 
+  filter(algoritmo != "Insertion") %>% 
+ggplot(aes(x = algoritmo, y = tempo)) +
+  geom_boxplot(fill = "#69b3a2", color = "black", size = 0.2, outlier.size = 0.3) +
+  theme_light() +
+  labs(y = "", x = "", 
+       title = "Distribuição do tempo entre\nOrdenador Universal e QuickSort") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 9),
+    axis.title = element_text(size = 9),
+    axis.text = element_text(size = 9)
+  )
+
+(g1 | g2)
+
+```
+
+No Gráfico 4 percebe-se que o algoritmo Insertion é o que possui pior desempenho para três das quatro variáveis: tamanho do vetor, comparações e movimentações. Apenas para chamadas que ele é superior, pois atua de forma não recursiva, o que é bom para a memória Heap. Como ele ofusca a análise entre os outros dois algoritmos, abaixo será plotado um gráfico comparando apenas os algoritmos Ordenador Universal e QuickSort.   
+
+\newpage
+
+**Figura 4: Gráfico variáveis computadas por tempo por tipo de algoritmo**
+
+```{r fig.height = 6, echo = FALSE}
+
+g1 <- ggplot(data, aes(x = vetor, y = tempo, color = algoritmo)) +
+  geom_point(size = 0.05, alpha = 0.6) +  # pontos pequenos e semitransparentes
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Tamanho vetor", color = NULL,
+       title = "Tamanho do vetor por\ntempo de execução por algoritmo") +
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    plot.title = element_text(hjust = 0.5, size = 7.5),
+    axis.title = element_text(size = 7.5),
+    axis.text = element_text(size = 7.5),
+    legend.title = element_text(size = 7.5),
+    legend.text = element_text(size = 7.5),
+    axis.title.x = element_text(size = 7.5),
+    axis.title.y = element_text(size = 7.5)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 1.5)))
+
+g2 <- ggplot(data, aes(x = chamada, y = tempo, color = algoritmo)) +
+  geom_point(size = 0.05, alpha = 0.6) +  # pontos pequenos e semitransparentes
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Quantidade de chamadas", color = NULL,
+       title = "Chamadas por tempo\nde execução por algoritmo") + 
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    axis.text = element_text(size = 7.5),
+    plot.title = element_text(hjust = 0.5, size = 7.5),
+    axis.title = element_text(size = 7.5),
+    legend.title = element_text(size = 7.5),
+    legend.text = element_text(size = 7.5),
+    axis.title.x = element_text(size = 7.5),
+    axis.title.y = element_text(size = 7.5)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 1.5)))
+
+g3 <- ggplot(data, aes(x = comparacao, y = tempo, color = algoritmo)) +
+  geom_point(size = 0.05, alpha = 0.6) +  # pontos pequenos e semitransparentes
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Quantidade de comparação", color = NULL,
+       title = "Comparação por tempo\nde execução por algoritmo") +
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    axis.text = element_text(size = 7.5),
+    plot.title = element_text(hjust = 0.5, size = 7.5),
+    axis.title = element_text(size = 7.5),
+    legend.title = element_text(size = 7.5),
+    legend.text = element_text(size = 7.5),
+    axis.title.x = element_text(size = 7.5),
+    axis.title.y = element_text(size = 7.5)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 1.5)))
+
+g4 <- ggplot(data, aes(x = movimentacao, y = tempo, color = algoritmo)) +
+  geom_point(size = 0.05, alpha = 0.6) +  # pontos pequenos e semitransparentes
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Quantidade de movimentações", color = NULL,
+       title = "Movimentações por tempo\nde execução por algoritmo")+
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    axis.text = element_text(size = 7.5),
+    plot.title = element_text(hjust = 0.5, size = 7.5),
+    axis.title = element_text(size = 7.5),
+    legend.title = element_text(size = 7.5),
+    legend.text = element_text(size = 7.5),
+    axis.title.x = element_text(size = 7.5),
+    axis.title.y = element_text(size = 7.5)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 1.5)))
+
+(g1 | g2) / (g3 | g4)
+
+```
+
+O Gráfico 5 compara os dois algoritmos: QuickSort e Ordenador Universal. Nele, é possível observar que para o tamanho do vetor, o algoritmo otimizado é mais ágil que o QuickSort, pois o ajuste do limiar de partição e de quebra impactou diretamente no desempenho em relação a utilização do tipo puro QuickSort. Também, chama atenção a quantidade de chamadas recursivas, onde o algoritmo otimizado faz bem menos e o tempo de execução continua na mesma faixa que o algoritmo QuickSort. A indução de quebras com o limiar adequado promoveu essa redução de chamadas recursivas, aumentando a eficiência geral. Isso é interessante, especialmente por ocupar menos memória no Heap. Para as demais variáveis, quantidade de comparação e movimentação, ambos os algoritmos possuem desempenho semelhantes.   
+
+\newpage
+
+**Figura 5: Gráfico variáveis computadas por tempo entre Ordenador Universal e QuickSort**
+
+```{r fig.height = 6, echo = FALSE}
+
+g1 <- data %>% 
+  filter(algoritmo != "Insertion") %>% 
+ggplot(aes(x = vetor, y = tempo, color = algoritmo)) +
+  geom_point(aes(color = algoritmo, alpha = algoritmo), size = 0.05) +
+  scale_alpha_manual(values = c("QuickSort" = 0.3, "Ordenador Universal" = 0.7)) +
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Tamanho vetor", color = NULL,
+       title = "Tamanho do vetor por\ntempo de execução por algoritmo") +
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    plot.title = element_text(hjust = 0.5, size = 7.5),
+    axis.title = element_text(size = 7.5),
+    axis.text = element_text(size = 7.5),
+    legend.title = element_text(size = 7.5),
+    legend.text = element_text(size = 7.5),
+    axis.title.x = element_text(size = 7.5),
+    axis.title.y = element_text(size = 7.5)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 1.5)),
+         alpha = "none")
+
+g2 <- data %>% 
+  filter(algoritmo != "Insertion") %>% 
+ggplot(aes(x = chamada, y = tempo, color = algoritmo)) +
+  geom_point(aes(color = algoritmo, alpha = algoritmo), size = 0.05) +
+  scale_alpha_manual(values = c("QuickSort" = 0.3, "Ordenador Universal" = 0.7)) +
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Quantidade de chamadas", color = NULL,
+       title = "Chamadas por tempo\nde execução por algoritmo") + 
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    axis.text = element_text(size = 7.5),
+    plot.title = element_text(hjust = 0.5, size = 7.5),
+    axis.title = element_text(size = 7.5),
+    legend.title = element_text(size = 7.5),
+    legend.text = element_text(size = 7.5),
+    axis.title.x = element_text(size = 7.5),
+    axis.title.y = element_text(size = 7.5)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 1.5)),
+         alpha = "none")
+
+g3 <- data %>% 
+  filter(algoritmo != "Insertion") %>% 
+ggplot(aes(x = comparacao, y = tempo, color = algoritmo)) +
+  geom_point(aes(color = algoritmo, alpha = algoritmo), size = 0.05) +
+  scale_alpha_manual(values = c("QuickSort" = 0.3, "Ordenador Universal" = 0.7)) +
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Quantidade de comparação", color = NULL,
+       title = "Comparação por tempo\nde execução por algoritmo") +
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    axis.text = element_text(size = 7.5),
+    plot.title = element_text(hjust = 0.5, size = 7.5),
+    axis.title = element_text(size = 7.5),
+    legend.title = element_text(size = 7.5),
+    legend.text = element_text(size = 7.5),
+    axis.title.x = element_text(size = 7.5),
+    axis.title.y = element_text(size = 7.5)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 1.5)),
+         alpha = "none")
+
+g4 <- data %>% 
+  filter(algoritmo != "Insertion") %>% 
+ggplot(aes(x = movimentacao, y = tempo, color = algoritmo)) +
+  geom_point(aes(color = algoritmo, alpha = algoritmo), size = 0.05) +
+  scale_alpha_manual(values = c("QuickSort" = 0.3, "Ordenador Universal" = 0.7)) +
+  scale_y_continuous(labels = comma, limits = c(0, NA), expand = c(0, 0)) +
+  scale_x_continuous(labels = label_number(scale_cut = cut_short_scale()), limits = c(0, NA), expand = c(0, 0)) +
+  labs(y = "Tempo (em segundo)", x = "Quantidade de movimentações", color = NULL,
+       title = "Movimentações por tempo\nde execução por algoritmo")+
+  theme_light() +
+  theme(
+    plot.margin = margin(t = 5, r = 20, b = 5, l = 5),
+    legend.position = "bottom",   
+    legend.box = "horizontal",   
+    axis.text = element_text(size = 7.5),
+    plot.title = element_text(hjust = 0.5, size = 7.5),
+    axis.title = element_text(size = 7.5),
+    legend.title = element_text(size = 7.5),
+    legend.text = element_text(size = 7.5),
+    axis.title.x = element_text(size = 7.5),
+    axis.title.y = element_text(size = 7.5)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 1.5)),
+         alpha = "none")
+
+(g1 | g2) / (g3 | g4)
+
+```
+
+\newpage
+
+# 6. Conclusões
+
+Este trabalho implementou e analisou dois programas, que determinam, de forma adaptativa, o limiar ideal de partição e o limiar ideal de quebras para um algoritmo híbrido de ordenação. A metodologia adotada demonstrou capacidade de melhorar o desempenho do algoritmo, reduzindo custos computacionais relevantes. 
+
+Aprendeu-se que a adaptação dinâmica de parâmetros, baseada em medições empíricas, é uma técnica eficaz para otimização de algoritmos de ordenação em diferentes contextos.
+
+O custo ponderado permitiu balancear diferentes prioridades, como minimizar movimentações em vetores muito grandes ou reduzir comparações em dados sensíveis.
+
+Os resultados indicam que a abordagem adaptativa é eficiente para diferentes perfis de dados e configurações.
+
+# Referência
+
+LACERDA, Anisio; MEIRA JR., Wagner; CUNHA, Washington. *Estruturas de Dados*. Slides da disciplina DCC205 – Estruturas de Dados, Departamento de Ciência da Computação, ICEx/UFMG, 2025.
+
+UNIVERSIDADE FEDERAL DE MINAS GERAIS. Departamento de Ciência da Computação. Especificação do Trabalho Prático 1 – Ordenador Universal. Belo Horizonte: DCC/ICEx/UFMG, 2025. Documento em PDF.
