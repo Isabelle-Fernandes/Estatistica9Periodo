@@ -1,0 +1,140 @@
+---
+title: "Trabalho Prático 2: Clusterização"
+date: "25/05/2025"
+output:
+  pdf_document: default
+---
+
+**Isabelle Fernandes de Oliveira**  
+**Lucas Dayrell de Andrade Machado**  
+
+```{r include=FALSE}
+library(tidyverse)
+library(cluster)
+library(stats)
+library(factoextra)
+library(fpc)
+library(dbscan)
+library(NbClust)
+library(mclust)
+library(rmarkdown)
+library(tinytex)
+library(knitr)
+# tinytex::install_tinytex(repository = "illinois")
+# tinytex::tlmgr_update()
+# library(kableExtra)
+```
+
+# 1. Contexto escolhido e sua relevância
+O aumento global nos índices de obesidade tornou-se uma das principais preocupações de saúde pública nas últimas décadas. A obesidade está associada a diversas doenças crônicas, como diabetes tipo 2, hipertensão e problemas cardiovasculares. Com a crescente disponibilidade de dados relacionados a hábitos alimentares e estilos de vida, torna-se possível aplicar técnicas de mineração de dados para identificar padrões relevantes associados ao ganho de peso e perfis de risco.
+
+O dataset Obesity Prediction, disponível no Kaggle  *<https://www.kaggle.com/datasets/ruchikakumbhar/obesity-prediction?resource=download>*, reúne informações demográficas, comportamentais e nutricionais de indivíduos. Esse banco de dados oferece uma excelente oportunidade para aplicar técnicas de clusterização, permitindo a segmentação da população em grupos com características semelhantes, o que pode facilitar intervenções mais eficazes na prevenção e tratamento da obesidade.
+
+# 2. Recursos disponíveis, requisitos, suposições, restrições, riscos e contingências
+
+**Recursos disponíveis:**   
+- Dataset "Obesity Prediction" do Kaggle.  
+- Software R 4.4.2.   
+- Pacotes: stats, cluster, factoextra, fpc, NbClust, dbscan, mclust, tidyverse.   
+- RStudio: Ambiente integrado de desenvolvimento (IDE) para programação em R.   
+- Conhecimentos prévios sobre análise de dados e clusterização.   
+
+**Requisitos:**   
+- Realizar a preparação e tratamento dos dados.   
+- Aplicar e comparar algoritmos de clusterização (como K-means, DBSCAN,Hierarchical Clustering).   
+- Avaliar a coesão dos clusters utilizando métricas de avaliação dos agrupamentos.
+
+**Suposições:**   
+- Os dados são representativos e confiáveis.   
+- As variáveis fornecidas possuem relação direta com a obesidade.   
+
+**Restrições:**   
+- O dataset é limitado a variáveis auto-relatadas, o que pode introduzir viés.   
+- O projeto será desenvolvido sem apoio de especialistas da área da saúde.   
+
+**Riscos e contingências:**   
+- Risco 1: a clusterização pode não gerar grupos claramente distintos.      
+- Contingência 1: testar diferentes algoritmos e métodos de pré-processamento.   
+- Risco 2: dados ausentes ou inconsistentes.   
+- Contingência 2: exclusão do registro   
+
+# 3. Objetivos da mineração de dados, detalhamento da tarefa e critérios de sucesso (Tarefa 1.3)
+
+**Objetivo:**   
+- Segmentar indivíduos, por meio da aplicação de técnicas não supervisionadas (clusterização), com base em características relacionadas à obesidade, como hábitos alimentares, atividade física e dados demográficos, a fim de identificar perfis de risco distintos.   
+- Aplicar e comparar algoritmos de clusterização (como K-means, DBSCAN,Hierarchical Clustering).   
+
+**Tarefa de Mineração de Dados:**   
+1. Limpeza de dados.   
+2. Codificação de valores categóricos.      
+3. Padronização de variáveis numéricas.      
+4. Possível aplicação de Análise de Componentes Principais (PCA).      
+5. Utilização de algoritmos de agrupamento (K-means, DBSCAN, Hierarchical Clustering).      
+6. Avaliar a coesão dos clusters utilizando métricas de avaliação dos agrupamentos.   
+7. Comparar os resultados obtidos pelos diferentes algorítmos.   
+
+
+**Critérios de sucesso:**   
+- Clusters com alta separabilidade (baixa sobreposição entre grupos).      
+- Grupos que podem ser interpretados e relacionados ao risco de obesidade.    
+
+
+# 4. Descrição do projeto
+O projeto consiste em aplicar técnicas de mineração de dados com foco em clusterização para analisar o dataset Obesity Prediction. O objetivo é agrupar os indivíduos com base em seus hábitos de vida e características demográficas, com o intuito de identificar perfis distintos de risco para a obesidade. Serão testados diferentes algoritmos de clusterização, e os resultados serão avaliados com base em métricas quantitativas e qualitativas.
+
+# 5. Descrição e exploração dos dados
+O dataset Obesity Prediction contém 2.111 linhas e 17 colunas. Cada linha representa o registro de indivíduos com as variáveis relacionadas a saúde e hábitos alimentares.
+
+```{r echo=FALSE}
+df <- read.csv("Obesity prediction.csv", sep = ",")
+glimpse(df)
+```
+O que cada coluna representa está descrito abaixo:   
+- Gender: Sexo   
+- Age: Idade   
+- Height : Altura em metros   
+- Weight : peso em kg   
+- family_history : Algum membro da família sofreu ou sofre de sobrepeso?   
+- FAVC : Você come alimentos com alto teor calórico com frequência?   
+- FCVC : Você costuma comer vegetais em suas refeições?   
+- NCP : Quantas refeições principais você faz diariamente?   
+- CAEC : Você come algum alimento entre as refeições?   
+- SMOKE : Você fuma?   
+- CH2O : Quanta água você bebe diariamente?   
+- SCC : Você monitora as calorias que ingere diariamente?   
+- FAF: Com que frequência você pratica atividade física?   
+- TUE : Quanto tempo você usa dispositivos tecnológicos como celular, videogame, televisão, computador e outros?   
+- CALC : Com que frequência você consome bebidas alcoólicas?   
+- MTRANS : Qual meio de transporte você costuma usar?   
+- Obesity_level : Nível de obesidade   
+
+
+```{r}
+qtde_registro_NA <- sum(apply(is.na(df), 1, any))
+```
+
+Quantidade de registros com alguma coluna NA: **`r qtde_registro_NA`**.     
+Como pode ser visto, no dataset não há dados faltantes. Para todas as linhas, todas as colunas estão devidamente preenchidas.
+
+O dataset possui variáveis categóricas e numéricas, sendo necessária a codificação adequada. Isso é feito no chunk abaixo com a transformação de dados character em factor.
+
+```{r}
+# trasnformacao de variavel character para categórica
+for(i in 1:ncol(df)){
+  if(is_character(df[,i]))
+     df[,i] <- as.factor(df[,i])
+}
+```
+
+Abaixo, segue a frequência dos registros para cada feature
+
+```{r}
+summary(df)
+
+```
+
+A variável NObeyesdad pode ser usada para análise posterior, mas não será usada para guiar os clusters, já que o objetivo é a segmentação não supervisionada.
+
+Será necessário normalizar variáveis numéricas como Age, Height, Weight, FAF, etc.
+
+Análise exploratória por meio de histogramas, gráficos de dispersão e correlação será conduzida para entender a distribuição dos dados e possíveis relações entre as variáveis.
