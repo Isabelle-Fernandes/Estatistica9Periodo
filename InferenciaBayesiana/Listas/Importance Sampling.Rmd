@@ -1,0 +1,143 @@
+---
+title: "Exercício Importance Sampling"
+author: "Isabelle Fernandes de Oliveira"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+```
+
+```{r warning=FALSE}
+mi_real <- 5 # valor a estimar
+sigma2 <- 9 # valor conhecido
+n <- 50 # tamanho da amostra
+x <- rnorm(n, mi_real, sqrt(sigma2)) # amostra
+v <- 10 # variancia da priori
+m <- 8 # media da priori
+
+v_star <- 1/((n/sigma2) + (1/v)) # variancia a posteriori
+m_star <- v_star * ((sum(x)/sigma2) + m/v ) # media a posteriori
+
+corrida <- 100000 # numeros de pontos a serem gerados
+theta <- rnorm(corrida, m, sqrt(v)) # gerados a partir de uma g(theta) ~ N(m, v)
+
+pi_theta <- exp(-1/(2*sigma2) * (-2*theta*sum(x) + n*theta^2))*
+  exp(-1/(2*v)*(theta - m)^2) # nucleo pi(theta|x)
+
+w_theta <- pi_theta/dnorm(theta, m, sqrt(v)) # calcula os pesos
+w_theta = w_theta / sum(w_theta) # normaliza
+
+me_posterior = sum(w_theta * theta) # media a posteriori do Importance Sampling
+v_posterior = sum(w_theta * (theta - me_posterior)^2) 
+# variancia a posterior do Importance Sampling
+dens_est <- density(theta, weights = w_theta)  
+
+d_post = (w_theta * corrida) / (max(theta) - min(theta))
+
+d_post_real <- dnorm(theta, mean = m_star, sd = sqrt(v_star)) 
+# densidade da formula fechada
+
+df <- bind_rows(
+  data.frame(theta = theta, densidade = d_post_real, tipo = "Posteriori real"),
+  data.frame(theta = dens_est$x, densidade = dens_est$y, tipo = "Posterior estimada")
+)
+
+cat(paste0("Variancia da posteriori formula fechada: ", round(v_star,5), "\n"))
+cat(paste0("Média da posteriori formula fechada: ", round(m_star,5), "\n", "\n"))
+
+cat(paste0("Variancia da posteriori estimada: ", round(v_posterior,5), "\n"))
+cat(paste0("Média da posteriori estimada: ", round(me_posterior,5), "\n"))
+
+ggplot(df, aes(x = theta, y = densidade, color = tipo, linetype = tipo)) +
+  geom_line(size = 1) +
+  theme_light() +
+  labs(x = expression(theta), y = "Densidade") +
+  scale_color_manual(values = c("Posteriori real" = "blue", "Posterior estimada" = "red")) +
+  scale_linetype_manual(values = c("Posteriori real" = "dashed", "Posterior estimada" = "solid")) +
+  theme(
+    legend.position = c(0.8, 0.8),
+    legend.background = element_rect(fill = alpha('white', 0.8), color = "gray"),
+    legend.title = element_blank()
+  )
+```
+
+```{r warning=FALSE}
+
+rm(list = ls(all.names = TRUE))
+
+dinvgamma <- function(x, alpha, beta) {
+  (beta^alpha / gamma(alpha)) * x^(-alpha - 1) * exp(-beta/x)
+} # funcao que calcula a densidade de uma gamma inversa
+
+rinvgamma <- function(n, alpha, beta) {
+  1 / rgamma(n, shape = alpha, rate = beta)
+} # funcao que gera uma amostra de uma distribuicao inversa gama
+
+sigma2_real <- 5 # valor a estimar
+mi <- 10 # valor conhecido
+n <- 50 # tamanho da amostra
+x <- rnorm(n, mi, sqrt(sigma2_real)) # amostra
+a <- 10 # parametro da g(theta) ~ Gama(a, b) E(theta)=10 VAR(theta)=10
+b <- 1 
+
+a_p <- 12 # parametro da priori GamaInversa(a = 12, b = 110)
+b_p <- 110
+
+a_star <- a_p + (n/2) # parametro da posteriori conhecida 
+# priori(theta) ~ GamaInversa(a = 12, b = 110) E(theta)= 10 e VAR(theta )=10
+# posteriori(theta) ~ GammaInversa(a_star = a + n/2, b_star = b + 0.5* ....)
+b_star <- b_p + (0.5*(sum(x*x)-2*mi*sum(x)+n*mi^2)) 
+
+corrida <- 100000 # numeros de pontos a serem gerados
+theta <- rgamma(corrida, shape = a, rate = b) 
+# gerados a partir de uma g(theta) ~ Gama(a, b)
+
+pi_theta <- theta^(-a_p-1-n/2)*
+  exp((-0.5*(1/theta)*sum((x - mi)^2)) - (b_p/theta)) # nucleo pi(theta|x)
+
+w_theta <- pi_theta/dgamma(theta, shape = a, rate = b) # calcula os pesos
+w_theta = w_theta / sum(w_theta) # normaliza
+
+me_posterior = sum(w_theta * theta) # media a posteriori do Importance Sampling
+v_posterior = sum(w_theta * (theta - me_posterior)^2) 
+# variancia a posterior do Importance Sampling
+dens_est <- density(theta, weights = w_theta) 
+
+d_post = (w_theta * corrida) / (max(theta) - min(theta))
+
+d_post_real <- dinvgamma(theta, a_star, b_star) # densidade da formula fechada
+
+df <- bind_rows(
+  data.frame(theta = theta, densidade = d_post_real, tipo = "Posteriori real"),
+  data.frame(theta = dens_est$x, densidade = dens_est$y, tipo = "Posterior estimada")
+)
+
+esperanca_posteriori_fechada <- b_star/(a_star-1)
+variancia_posteriori_fechada <- (b_star^2)/(((a_star-1)^2) *(a_star-2))
+
+cat(paste0("Variancia da posteriori formula fechada: ", 
+           round(esperanca_posteriori_fechada,5), "\n"))
+cat(paste0("Média da posteriori formula fechada: ", 
+           round(esperanca_posteriori_fechada ,5), "\n", "\n"))
+
+cat(paste0("Variancia da posteriori estimada: ", round(v_posterior,5), "\n"))
+cat(paste0("Média da posteriori estimada: ", round(me_posterior,5), "\n"))
+
+
+ggplot(df, aes(x = theta, y = densidade, color = tipo, linetype = tipo)) +
+  geom_line(size = 1) +
+  theme_light() +
+  labs(x = expression(theta), y = "Densidade") +
+  scale_color_manual(values = c("Posteriori real" = "blue", "Posterior estimada" = "red")) +
+  scale_linetype_manual(values = c("Posteriori real" = "dashed", "Posterior estimada" = "solid")) +
+  theme(
+    legend.position = c(0.8, 0.8),
+    legend.background = element_rect(fill = alpha('white', 0.8), color = "gray"),
+    legend.title = element_blank()
+  )
+
+```
+
