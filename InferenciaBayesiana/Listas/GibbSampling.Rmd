@@ -1,0 +1,150 @@
+---
+title: "Gibbs Sampling"
+author: "Isabelle Fernandes de Oliveira"
+date: "2025-06-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+library(coda)
+library(knitr)
+```
+
+```{r}
+# gerando dados artificiais.
+n = 100 # tamanho amostral.
+mu_real = 10 # mu real.
+phi_real = 2 # phi real.
+y = rnorm(n,mu_real,sqrt(1/phi_real))
+# especificacoes a priori.
+m = 5; v = 100; # mu ~ N(m,v).
+a = 0.01; b = 0.01; # phi ~ Ga(a,b).
+# semente de inicializacao da cadeia MCMC.
+mu = 50; phi = 10;
+# numero total de iteracoes.
+N = 10000
+# objetos auxiliares para salvar as cadeias.
+save_mu = mu; save_phi = phi;
+
+for(j in 1:N){
+  # concidional completa de mu.
+  vs = 1/(n*phi + 1/v)
+  ms = vs * (phi*sum(y) + m/v)
+  mu = rnorm(1,ms,sqrt(vs))
+  # concidional completa de phi.
+  as = a + n/2
+  bs = b + 0.5*(sum(y^2) -2*mu*sum(y) +n*mu^2)
+  phi = rgamma(1,as,rate=bs)
+  # salvando cadeia.
+  save_mu = c(save_mu, mu)
+  save_phi = c(save_phi, phi)
+}
+
+df_mu <- data.frame(Mu = save_mu, Iteracao = 1:(N+1))
+df_phi <- data.frame(Phi = save_phi, Iteracao = 1:(N+1))
+
+grafico1 <- ggplot(df_mu, aes(x = Iteracao, y = Mu)) +
+  geom_line() +
+  geom_hline(yintercept = mu_real, color = "red",
+             linetype = "solid", linewidth = 0.6) +
+  theme_light()
+
+grafico2 <- ggplot(df_phi, aes(x = Iteracao, y = Phi)) +
+  geom_line() +
+  geom_hline(yintercept = phi_real, color = "red",
+             linetype = "solid", linewidth = 0.6) +
+  theme_light()
+
+grafico1 / grafico2
+
+# Remover burn-in
+save_mu <- save_mu[10:10000]
+save_phi <- save_phi[10:10000]
+save_var <- 1 / save_phi
+save_dp <- sqrt(save_var)
+
+calc_moda <- function(x) {
+  d <- density(x)
+  d$x[which.max(d$y)]
+}
+
+# Calcular estatísticas para cada parâmetro
+tabela <- tibble::tibble(
+  Parâmetro = c("mu", "phi", "sigma^2", "sigma"),
+  `Valor real` = c(mu_real, phi_real, 1/phi_real, sqrt(1/phi_real)),
+  Média = c(mean(save_mu), mean(save_phi), mean(save_var), mean(save_dp)),
+  Moda = c(calc_moda(save_mu), calc_moda(save_phi), calc_moda(save_var), calc_moda(save_dp)),
+  Mediana = c(median(save_mu), median(save_phi), median(save_var), median(save_dp)),
+  `Desvio padrão` = c(sd(save_mu), sd(save_phi), sd(save_var), sd(save_dp)),
+  `HPD 2.5%` = c(
+    HPDinterval(as.mcmc(save_mu), prob = 0.95)[1],
+    HPDinterval(as.mcmc(save_phi), prob = 0.95)[1],
+    HPDinterval(as.mcmc(save_var), prob = 0.95)[1],
+    HPDinterval(as.mcmc(save_dp), prob = 0.95)[1]
+  ),
+  `HPD 97.5%` = c(
+    HPDinterval(as.mcmc(save_mu), prob = 0.95)[2],
+    HPDinterval(as.mcmc(save_phi), prob = 0.95)[2],
+    HPDinterval(as.mcmc(save_var), prob = 0.95)[2],
+    HPDinterval(as.mcmc(save_dp), prob = 0.95)[2]
+  )
+)
+
+kable(tabela)
+```
+
+
+```{r}
+df_mu <- data.frame(Mu = save_mu)
+df_phi <- data.frame(Phi = save_phi)
+df_var <- data.frame(Sigma2 = save_var)
+
+vlines_mu <- data.frame(
+  valor = c(mu_real, mean(df_mu$Mu)),
+  tipo = c("Valor real", "Média GS")
+)
+grafico1 <- ggplot(df_mu, aes(x = Mu)) +
+  geom_histogram(bins = 50, fill = "steelblue", color = "white") +
+  geom_vline(data = vlines_mu, aes(xintercept = valor, color = tipo), linewidth = 0.7) +
+  scale_color_manual(values = c("Valor real" = "red", "Média GS" = "darkorange")) +
+  labs(x = expression(mu),
+       y = "Frequência",
+       color = "Legenda") +
+  theme_light()
+
+
+vlines_phi <- data.frame(
+  valor = c(phi_real, mean(df_phi$Phi)),
+  tipo = c("Valor real", "Média GS")
+)
+grafico2 <- ggplot(df_phi, aes(x = Phi)) +
+  geom_histogram(bins = 50, fill = "steelblue", color = "white") +
+  geom_vline(data = vlines_phi, aes(xintercept = valor, color = tipo), linewidth = 0.7) +
+  scale_color_manual(values = c("Valor real" = "red", "Média GS" = "darkorange")) +
+  labs(x = expression(phi),
+       y = "Frequência",
+       color = "Legenda") +
+  theme_light()
+
+
+
+vlines_sigma <- data.frame(
+  valor = c(1/phi_real, mean(df_var$Sigma2)),
+  tipo = c("Valor real", "Média GS")
+)
+grafico3 <- ggplot(df_var, aes(x = Sigma2)) +
+  geom_histogram(bins = 50, fill = "steelblue", color = "white") +
+  geom_vline(data = vlines_sigma, aes(xintercept = valor, color = tipo), linewidth = 0.7) +
+  scale_color_manual(values = c("Valor real" = "red", "Média GS" = "darkorange")) +
+  labs(x = expression(sigma^2),
+       y = "Frequência",
+       color = "Legenda") +
+  theme_light()
+
+grafico1 / grafico2 / grafico3
+
+```
+
