@@ -17,11 +17,9 @@
 class Pacote {
 public:
     ~Pacote();
-    void Inicializar(int tempo, char * _remetente, char * _destinatario, int _tipo, int _armazemOrigem, int _armazemDestino);
+    void Inicializar(int tempo, int id, int _armazemOrigem, int _armazemDestino);
     int tempoAtual;
-    char* nomeRemetente;
-    char* nomeDestinatario;
-    int tipo;
+    int id;
     int armazemOrigem;
     int armazemDestino;
     int estadoPacote;
@@ -31,7 +29,5 @@ public:
     int proximoDestino;
     int getProximoDestinoNaRota();
 };
-
-char* lerPalavraDinamica(std::ifstream& arquivo);
 
 #endif

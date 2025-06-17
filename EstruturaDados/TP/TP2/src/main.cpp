@@ -5,51 +5,62 @@
 
 int main(int argc, char* argv[]){
 
-    if (argc < 3) {
+    if (argc < 2) {
         std::cerr << "Uso: " << argv[0] << " <arquivo_de_entrada>\n";
         return 1;
     }
     
     std::string nome_arquivo = argv[1];
-    std::ifstream arquivo_grafo(nome_arquivo);
+    std::ifstream arquivo_entrada(nome_arquivo);
 
-    int numeroVertices;
+    int capacidadeTransporte;
+    int latenciaTransporte;
+    int intervaloTransporte;
+    int custoRemocao;
+    int qtdeArmazem;     
 
-    arquivo_grafo >> numeroVertices;
-    Grafo grafo(numeroVertices);
+    arquivo_entrada >> capacidadeTransporte;
+    arquivo_entrada >> latenciaTransporte;
+    arquivo_entrada >> intervaloTransporte;
+    arquivo_entrada >> custoRemocao;
+    arquivo_entrada >> qtdeArmazem;
 
-    for(int i = 0; i < numeroVertices; i++){
-        int qtdeVizinho;
-        arquivo_grafo >> qtdeVizinho;
-        for(int j = 0; j < qtdeVizinho; j++){
-            int vizinho;
-            arquivo_grafo >> vizinho;
-            grafo.addAresta(i, vizinho);
+    Grafo grafo(qtdeArmazem);
+
+    // leitura do grafo
+    for(int origem = 0; origem < qtdeArmazem; origem++){
+        for(int vizinho = 0; vizinho < qtdeArmazem; vizinho++){
+            int vertice;
+            arquivo_entrada >> vertice;
+            if(vertice == 1){
+                grafo.addAresta(origem, vizinho);
+            }
         }
     }
 
-    nome_arquivo = argv[2];
-    std::ifstream arquivo_pacote(nome_arquivo);
+    int qtdePacote;
 
-    int qtdePacotes;
-    arquivo_pacote >> qtdePacotes;
+    arquivo_entrada >> qtdePacote;
     
-    Pacote pacotes[qtdePacotes];
+    Pacote pacotes[qtdePacote];
     
-    for(int i = 0; i < qtdePacotes; i++){
-        int tempo, tipo, armazemOrigem, armazemDestino;
-        char* remetente;
-        char* destinatario;
+    // leitura dos dados do pacote
+    for(int i = 0; i < qtdePacote; i++){
+        char palavra;
+        int tempoChegada, idPac, armazemOrigem, armazemDestino;
 
-        // Leitura dos dados do pacote
-        arquivo_pacote >> tempo;
-        remetente = lerPalavraDinamica(arquivo_pacote);
-        destinatario = lerPalavraDinamica(arquivo_pacote);
-        arquivo_pacote >> tipo >> armazemOrigem >> armazemDestino;
+        arquivo_entrada >> tempoChegada;
+        arquivo_entrada >> palavra;
+        arquivo_entrada >> idPac;
+        arquivo_entrada >> palavra;
+        arquivo_entrada >> armazemOrigem;
+        arquivo_entrada >> palavra;
+        arquivo_entrada >> armazemDestino;
 
-        pacotes[i].Inicializar(tempo, remetente, destinatario, tipo, armazemOrigem, armazemDestino);
+        pacotes[i].Inicializar(tempoChegada, idPac, armazemOrigem, armazemDestino);
         pacotes[i].rota = BuscaMenorRota(pacotes[i], grafo, pacotes[i].tamanhoRota); // calcula a rota para cada pacote
     }
+
 
     return 0;
 }
