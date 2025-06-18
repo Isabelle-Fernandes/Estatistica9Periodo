@@ -1,5 +1,6 @@
-#include "CalculaRota.hpp" 
-#include "Fila.hpp" 
+#include "../include/CalculaRota.hpp" 
+#include "../include/Fila.hpp" 
+#include <iostream>
 
 void ImprimeRota(int* rota, int tamanho_rota) {
     std::cout << "Menor Rota: ";
@@ -9,8 +10,8 @@ void ImprimeRota(int* rota, int tamanho_rota) {
     std::cout << std::endl;
 }
 
-// Retorna um array com a rota. O primeiro elemento do array eh o tamanho da rota
-int* BuscaMenorRota(Pacote &pacote, Grafo &grafo, int &tamanho_rota) {
+// Retorna um array com a rota
+int* BuscaMenorRota(Pacote &pacote, Grafo &grafo) {
     int origem = pacote.armazemOrigem; // Vertice de origem
     int destino = pacote.armazemDestino; // Vertice de destino
 
@@ -61,7 +62,7 @@ int* BuscaMenorRota(Pacote &pacote, Grafo &grafo, int &tamanho_rota) {
     }
 
     int* rota_invertida = new int[n];
-    tamanho_rota = 0;
+    int tamanho_rota = 0;
     int atual = destino;
     while(atual != -1) {
         rota_invertida[tamanho_rota] = atual;
@@ -75,10 +76,12 @@ int* BuscaMenorRota(Pacote &pacote, Grafo &grafo, int &tamanho_rota) {
         rota_final[i] = rota_invertida[tamanho_rota - i - 1];
     }
 
-    // Limpa a memória alocada
+    // Limpa a memoria alocada
     delete[] visitado;
     delete[] predecessor;
     delete[] rota_invertida;
+
+    pacote.tamanhoRota = tamanho_rota;
 
     return rota_final;
 }

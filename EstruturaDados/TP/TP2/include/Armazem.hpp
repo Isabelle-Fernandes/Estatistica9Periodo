@@ -3,6 +3,7 @@
 
 #include "Pilha.hpp" 
 #include "Pacote.hpp"
+#include "Grafo.hpp"
 
 // Uma estrutura para retornar os pacotes recuperados para transporte e o custo da operacao
 struct ResultadoTransporte {
@@ -12,10 +13,10 @@ struct ResultadoTransporte {
 
 class Armazem {
 public:
-    int id;                   // O ID deste armazem (ex: 0, 1, 2...)
-    int grau;                 // O numero de secoes deste armazem
-    Pilha* secoes;            // Array de pilhas (as secoes LIFO)
-    int* mapaDeDestinos;      // Array que mapeia: secao[i] e para destino mapaDeDestinos[i]
+    int id; // O ID do armazem (ex: 0, 1, 2...)
+    int grau; // O numero de secoes deste armazem, que eh a quantidade de vertices ligado a ele
+    Pilha* secoes; // Array de pilhas (as secoes LIFO)
+    int* mapaDeDestinos; // Array que mapeia: secao[i] e para destino mapaDeDestinos[i]
 
     // Funcao auxiliar para encontrar o indice da secao para um dado destino
     int encontraIndiceDaSecao(int idDestino);
@@ -24,7 +25,7 @@ public:
     ~Armazem();
 
     // Inicializa o armazem com seu ID e suas conexoes (vizinhos)
-    void inicializar(int idArmazem, int grauDoVertice, int* idsDosVizinhos);
+    void inicializar(int idArmazem, Grafo* grafo);
 
     // A funcao descobre o proximo destino na rota do pacote e o coloca na pilha certa.
     void armazena(Pacote* p);

@@ -16,7 +16,7 @@ public:
     int grauVertice;
     ListaAdjacencia(int v);
     ~ListaAdjacencia();
-    void addAresta(int vertice); //nessa funcao, já incremento o grau do vertice
+    void addAresta(int vertice); //nessa funcao, ja incremento tambem o grau do vertice
 };
 
 class Grafo{

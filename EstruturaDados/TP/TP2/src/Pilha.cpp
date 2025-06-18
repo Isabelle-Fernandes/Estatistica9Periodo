@@ -1,4 +1,4 @@
-#include "Pilha.hpp"
+#include "../include/Pilha.hpp"
 
 Item::Item(Pacote* p){
     pacote = p;

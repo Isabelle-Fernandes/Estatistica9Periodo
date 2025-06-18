@@ -1,4 +1,4 @@
-#include "Armazem.hpp"
+#include "../include/Armazem.hpp"
 #include <iostream>
 
 Armazem::Armazem() {
@@ -14,19 +14,25 @@ Armazem::~Armazem() {
 }
 
 // Configura o armazem com base na topologia do grafo
-void Armazem::inicializar(int idArmazem, int grauDoVertice, int* idsDosVizinhos) {
+void Armazem::inicializar(int idArmazem, Grafo* grafo) {
     this->id = idArmazem;
-    this->grau = grauDoVertice;
+    this->grau = grafo->listaAdjacencia[idArmazem]->grauVertice;
     
     // Aloca memoria para o array de secoes (pilhas) e para o mapa de destinos
     if (this->grau > 0) {
         this->secoes = new Pilha[this->grau];
         this->mapaDeDestinos = new int[this->grau];
 
+        Vertice* idVizinho = grafo->listaAdjacencia[idArmazem]->origem->prox; // Pega o primeiro vizinho
+        
         // Preenche o mapa de destinos com os IDs dos vizinhos
         for (int i = 0; i < this->grau; i++) {
-            this->mapaDeDestinos[i] = idsDosVizinhos[i];
+            this->mapaDeDestinos[i] = idVizinho->vertice;
+            // Avanca para o proximo vizinho
+            idVizinho = idVizinho->prox;
         }
+
+        delete idVizinho;
     }
 }
 
@@ -70,7 +76,7 @@ ResultadoTransporte Armazem::recuperaParaTransporte(int idDestino, int capacidad
     Pilha& secaoAlvo = this->secoes[indiceSecao];
 
     // Itera ate a capacidade do transporte ou ate a secao esvaziar
-    for (int i = 0; i < capacidade && !secaoAlvo.estaVazia(); i++) {
+    for (int i = 0; i < capacidade && !secaoAlvo.estahVazia(); i++) {
         // Usa a funcao especial da pilha para pegar o mais antigo
         ResultadoRetirada res = secaoAlvo.retiraMaisAntigo();
         
@@ -86,9 +92,9 @@ ResultadoTransporte Armazem::recuperaParaTransporte(int idDestino, int capacidad
 }
 
 // Verifica se todas as secoes do armazem estao vazias
-bool Armazem::estaVazio() {
+bool Armazem::estahVazio() {
     for (int i = 0; i < this->grau; i++) {
-        if (!this->secoes[i].estaVazia()) {
+        if (!this->secoes[i].estahVazia()) {
             return false; // Encontrou uma secao com pacotes, entao o armazem nao esta vazio
         }
     }
