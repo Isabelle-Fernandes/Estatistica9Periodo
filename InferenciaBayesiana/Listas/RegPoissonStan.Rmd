@@ -1,0 +1,204 @@
+---
+output: 
+  pdf_document:
+    latex_engine: xelatex
+mainfont: "Latin Modern Roman"
+---
+
+\begin{center}
+
+{\Huge Implementação Bayesiana via Stan da distribuição normal com $\phi$ e $\mu$ desconhecidos \par}
+
+\vspace{0.5cm}
+
+{\Large  Aluna: Isabelle Fernandes de Oliveira - Curso Estatística \par}
+
+\vspace{0.3cm}
+
+{\Large  Estatística Bayesiana - 1º Semestre de 2025 \par}
+
+\end{center}
+
+\vspace{0.4cm}
+
+---
+
+
+```{r include=FALSE}
+setwd("C:/Users/isabe/Documents/UFMG/Estatistica9Periodo/InferenciaBayesiana/Listas")
+library(tidyverse)
+library(rstan)
+library(coda)
+ # comando para evitar recompilar.
+rstan_options(auto_write = TRUE)
+# comando para executar diferentes cadeias em paralelo.
+options(mc.cores = parallel::detectCores())
+```
+
+## Exercício
+
+$Y_i \sim \mathcal{N}(\mu, \frac{1}{\phi})$
+
+
+## Gerando dados artificiais
+
+```{r}
+ n = 100 # tamanho amostral
+ mu_real = 10 # mu real
+ phi_real = 2 # phi real
+ y = rnorm(n,mu_real,sqrt(1/phi_real))
+```
+
+## Especificação a priori
+
+$\mu \sim \mathcal{N}(m,v)$
+$\phi \sim \text{Ga}(a,b)$
+
+```{r}
+m = 5 # media de mu
+v = 10 # variacia de mu
+a = 0.1 # media phi = 1
+b = 0.1 # variancia phi = 10
+```
+
+## Transmitindo informações para o Stan
+
+```{r}
+data = list(n = n, y = y, m = m, v = v, a = a, b = b)
+```
+
+```{r}
+# Lista requisitando que mu_real e phi_real sejam salvos.
+pars = c("mu_real", "phi_real")
+```
+
+```{r}
+# Lista de sementes de inicialização
+init = list()
+init[[1]] = list(mu_real=5, phi_real=1)
+init[[2]] = list(mu_real=-5, phi_real=5)
+```
+
+```{r}
+iter = 2000 #Total de iterações (incluindo burn-in).
+warmup = 1000 # Numero de iterações do burn-in.
+chains= 2 # Numero de cadeias do MCMC.
+```
+
+```{r eval=FALSE}
+
+// Bloco de declaração de dados
+
+data{
+  int<lower=1> n;
+  vector[n] y;
+  real m;
+  real<lower=0> v;
+  real<lower=0> a;
+  real<lower=0> b;
+}
+
+ // Bloco de declaração de parâmetros
+
+parameters{
+  real mu_real;
+  real<lower=0> phi_real;
+}
+ 
+// Bloco de parâmetros transformados
+
+transformed parameters{
+  real sigma2;
+  sigma2 = 1/phi_real;
+}
+
+// Bloco do modelo.
+
+model{
+  // Verossimilhança
+  for(i in 1:n){y[i] ~ normal(mu_real[i], sqrt(1/phi_real));}
+  
+  // Priori 1:  mu_real ~ N(m,v) 
+  mu_real ~ normal(m,v);
+  
+  // Priori 2: phi ~ Gama(a, b)
+  phi ~ gamma(a,b);
+  
+}
+
+```
+
+
+```{r warning=FALSE}
+output = stan(file = "StanNormal.stan", data = data, iter = iter,
+              warmup = warmup, chains = chains, pars = pars,
+              init = init, verbose = FALSE)
+```
+
+## Explorando os resultados
+
+```{r}
+# Sumario global do objeto stan fit.
+print(output, pars = c("mu_real","phi_real"))
+```
+
+```{r}
+rstan::traceplot(output, pars = c("mu_real","phi_real"))
+```
+
+```{r}
+samp = extract(output)
+```
+
+```{r}
+par(mfrow = c(1,3))
+
+{plot(density(samp$mu_real),cex.lab =1, cex.axis= 1,lwd = 2,
+      main = "Densidade a posteriori de mu",col = "blue")
+  abline(v = mu_real,lwd = 2,col ="red")}
+
+{plot(density(samp$phi_real),cex.lab =1, cex.axis= 1, lwd = 2,
+      main= "Densidade a posteriori de phi",col = "blue")
+  abline(v = phi_real, lwd = 2,col ="red" )}
+
+{plot(density(1/samp$phi_real),cex.lab =1, cex.axis= 1, lwd = 2,
+      main= "Densidade a posteriori de sigma2",col = "blue")
+  abline(v = 1/phi_real, lwd = 2,col ="red" )}
+```
+O gráfico acima mostra a distribuição estimada para os parâmetros $\mu$,$\phi$ e $\sigma2$.
+Para os três parâmetros, o valor real, demarcado pela linha vertical vermelha, está contido na distribuição. Importante dizer que para a média, os valores reais estão próximo da média das respectivas distribuições, indicando que o valor estimado pontual está bem aproximado do valor real.
+
+```{r}
+par(mfrow =c(1,3))
+
+{plot(samp$mu_real, type ="l", cex.lab= 1.5, cex.axis = 1.5,
+      xlab ="iterações",ylab = "mu_real", 
+      main ="Traceplot de mu_real", col= "blue")
+  abline(h= mu_real,lwd = 2,col ="red" )}
+
+{plot(samp$phi_real, type = "l", cex.lab =1.5, cex.axis = 1.5,
+      xlab ="iterações",ylab = "phi_real",
+      main ="Traceplot de phi_real", col = "blue")
+  abline(h= phi_real, lwd = 2,col ="red" )}
+
+{plot(1/samp$phi_real, type = "l", cex.lab =1.5, cex.axis = 1.5,
+      xlab ="iterações",ylab = "sigma2",
+      main ="Traceplot de sigma2", col = "blue")
+  abline(h= 1/phi_real, lwd = 2,col ="red" )}
+```
+
+```{r}
+aux = cbind(samp$mu_real, samp$phi_real, 1/samp$phi_real)
+me = apply(aux, 2, mean) # media
+md = apply(aux, 2, median) # mediana
+sd = apply(aux, 2, sd) # desvio padrao
+parametro = c("mu_real", "phi_real", "sigma2")
+`valor real` = c(mu_real, phi_real, 1/phi_real)
+aux = as.mcmc(aux)
+hpd = HPDinterval(aux)
+tab = bind_cols(parametro, `valor real`, me, md, sd, hpd[,"lower"],hpd[,"upper"])
+colnames(tab) = c("parametro","valor real", "mean", "median","s.d.", "HPD_inf", "HPD_sup")
+knitr::kable(tab, digits = 4, caption = "Tabela de Resumo da Inferência Bayesiana")
+```
+
+Com base nos resultados, o modelo apresentou um desempenho satisfatório na estimação dos parâmetros. Para o primeiro parâmetro, o ajuste foi bem-sucedido, pois o valor real (10.0) está  contido no intervalo de credibilidade de 95% HPD. Para o segundo parâmetro, o ajuste foi bem-sucedido também, pois o valor real (2.0) está  contido no intervalo de credibilidade de 95% HPD. O mesmo vale para o parâmetro $\sigma2$.
