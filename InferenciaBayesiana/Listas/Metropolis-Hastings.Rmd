@@ -105,6 +105,7 @@ grafico1 + grafico2
 cat("Taxa de aceitacao: ", sum(ARate)/N)
 
 ```
+
 ```{r}
 
 rm(list = ls(all = TRUE))

@@ -1,27 +1,43 @@
 ---
-output: 
+title: ""
+author: "Isabelle Fernandes de Oliveira Sannier"
+output:
   pdf_document:
-    latex_engine: xelatex
+    toc: false
+    number_sections: false
+    keep_tex: true
+fontsize: 12pt
 mainfont: "Latin Modern Roman"
+geometry: margin=2.5cm
+lang: pt-BR
+header-includes:
+  - \usepackage[utf8]{inputenc}
+  - \usepackage{caption}
+  - \captionsetup{labelfont=bf}
+  - \usepackage{float}
 ---
 
-\begin{center}
+```{=latex}
+\begin{titlepage}
+\centering
 
-{\Huge Implementação Bayesiana via Stan da distribuição normal com $\phi$ e $\mu$ desconhecidos \par}
-
+{\large Universidade Federal de Minas Gerais (UFMG) \par}
 \vspace{0.5cm}
 
-{\Large  Aluna: Isabelle Fernandes de Oliveira - Curso Estatística \par}
+{\large Departamento de Estatística - ICEx \par}
+\vspace{4cm}
 
-\vspace{0.3cm}
+{\large Isabelle Fernandes de Oliveira Sannier (2021432208) \par}
+\vspace{5cm}
 
-{\Large  Estatística Bayesiana - 1º Semestre de 2025 \par}
+{\Large \textbf{Implementação Bayesiana via Stan do modelo de Regressão Poisson} \par}
+\vspace{8cm}
 
-\end{center}
+{\large Belo Horizonte, `r format(Sys.Date(), "%d de %B de %Y")` \par}
 
-\vspace{0.4cm}
 
----
+\end{titlepage}
+```
 
 
 ```{r include=FALSE}
@@ -29,7 +45,11 @@ setwd("C:/Users/isabe/Documents/UFMG/Estatistica9Periodo/InferenciaBayesiana/Lis
 library(tidyverse)
 library(rstan)
 library(coda)
- # comando para evitar recompilar.
+library(ggplot2)
+library(patchwork)
+library(knitr)
+
+# comando para evitar recompilar.
 rstan_options(auto_write = TRUE)
 # comando para executar diferentes cadeias em paralelo.
 options(mc.cores = parallel::detectCores())
@@ -37,52 +57,67 @@ options(mc.cores = parallel::detectCores())
 
 ## Exercício
 
-$Y_i \sim \mathcal{N}(\mu, \frac{1}{\phi})$
+Os gerentes de uma empresa resolveram desenvolver uma pesquisa coletando dados sobre o número de defeitos observados na superfície de um tipo de peça produzida pelo setor de fabricação. Suponha que a variável $Y_i$ representa o número de defeitos registrados na peça i ($Y_i$ é uma contagem e seus valores possíveis são 0, 1, 2, ...). Dados referentes a uma amostra de tamanho n=300 foram coletados, ou seja, i=1,2, ..., 300. Além de $Y_i$, a base de dados também contém duas covariáveis: 
+  $X_{1i}$ = covariável binária (1 = usou maquinário novo na fabricação, 0 = usou maquinário antigo) e 
+$X_{2i}$ = anos de experiência do funcionário que operou a máquina de fabricação (unidade de medida: anos/10).
 
+Será admitido a distribuição:
+  
+$Y_i \sim \text{Poisson}(\theta_i)$
+  
+Sendo $\theta_i$ > 0 a média de defeitos esperados na superfície de uma peça i.
+Também, será utilizado regressão Poisson para estabelecer uma relação entre as covariáveis ($X_{1i}$, $X_{2i}$) e a resposta $Y_i$.
 
-## Gerando dados artificiais
+$\ln(\theta_i) = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i}$
 
+## Carregando dados
+  
 ```{r}
- n = 100 # tamanho amostral
- mu_real = 10 # mu real
- phi_real = 2 # phi real
- y = rnorm(n,mu_real,sqrt(1/phi_real))
+dados <- read.table("DadosDefeitos.txt")
+n = 300 # tamanho amostral
+q <- 3 # 3 betas a estimar
+y <- dados$V1
+x <- cbind(rep(1, n), dados$V2, dados$V3)
 ```
 
 ## Especificação a priori
 
-$\mu \sim \mathcal{N}(m,v)$
-$\phi \sim \text{Ga}(a,b)$
+A informação inicial sobre $\beta = (\beta_0, \beta_1, ..., \beta_k)^T$ será expressa através da distribuição Normal Multivariada $\beta \sim N_q(m_\beta, S_\beta)$.
+
 
 ```{r}
-m = 5 # media de mu
-v = 10 # variacia de mu
-a = 0.1 # media phi = 1
-b = 0.1 # variancia phi = 10
+set.seed(123)
+
+m_beta <- rep(0, q)  # Vetor de medias
+S_beta <- 10 * diag(q) # Matriz de covariancia
 ```
+
+Priori especificada:
+
+$\boldsymbol{\beta} \sim N_3(\mathbf{0}_3, 10\ \mathbf{I}_3)$
 
 ## Transmitindo informações para o Stan
-
+  
 ```{r}
-data = list(n = n, y = y, m = m, v = v, a = a, b = b)
+data <- list(n = n, q = q, y = y, x = x, m_beta = m_beta, S_beta = S_beta)
 ```
 
 ```{r}
-# Lista requisitando que mu_real e phi_real sejam salvos.
-pars = c("mu_real", "phi_real")
+# Lista requisitando que beta e theta sejam salvos.
+pars = c("beta", "theta")
 ```
 
 ```{r}
 # Lista de sementes de inicialização
 init = list()
-init[[1]] = list(mu_real=5, phi_real=1)
-init[[2]] = list(mu_real=-5, phi_real=5)
+init[[1]] = list(beta = rep(0, q))
+init[[2]] = list(beta = runif(q,-1, 1))
 ```
 
 ```{r}
-iter = 2000 #Total de iterações (incluindo burn-in).
+iter = 2000 # Total de iterações (incluindo burn-in).
 warmup = 1000 # Numero de iterações do burn-in.
-chains= 2 # Numero de cadeias do MCMC.
+chains = 2 # Numero de cadeias do MCMC.
 ```
 
 ```{r eval=FALSE}
@@ -91,38 +126,38 @@ chains= 2 # Numero de cadeias do MCMC.
 
 data{
   int<lower=1> n;
-  vector[n] y;
-  real m;
-  real<lower=0> v;
-  real<lower=0> a;
-  real<lower=0> b;
+  int<lower=1> q;
+  int<lower=0> y[n];
+  matrix[n,q] x;
+  vector[q] m_beta;
+  matrix[q,q] S_beta;
 }
 
- // Bloco de declaração de parâmetros
+// Bloco de declaração de parâmetros
 
 parameters{
-  real mu_real;
-  real<lower=0> phi_real;
+  vector[q] beta;
 }
- 
+
 // Bloco de parâmetros transformados
 
 transformed parameters{
-  real sigma2;
-  sigma2 = 1/phi_real;
+  vector[n] theta;
+  for(i in 1:n){
+    theta[i] = exp(x[i,] * beta);
+  }
 }
 
-// Bloco do modelo.
+// Bloco do modelo
 
 model{
   // Verossimilhança
-  for(i in 1:n){y[i] ~ normal(mu_real[i], sqrt(1/phi_real));}
+  for(i in 1:n){
+    y[i] ~ poisson(theta[i]);
+  }
   
-  // Priori 1:  mu_real ~ N(m,v) 
-  mu_real ~ normal(m,v);
-  
-  // Priori 2: phi ~ Gama(a, b)
-  phi ~ gamma(a,b);
+  // Priori:  Normal Multivariada com vetor de medias e matriz de covariâncias
+  beta ~ multi_normal(m_beta, S_beta);
   
 }
 
@@ -130,75 +165,188 @@ model{
 
 
 ```{r warning=FALSE}
-output = stan(file = "StanNormal.stan", data = data, iter = iter,
-              warmup = warmup, chains = chains, pars = pars,
-              init = init, verbose = FALSE)
+aux = stan_model(file = "RegPoissonStan.stan", verbose = FALSE)
+output <- sampling(aux, data = data, iter = iter, warmup = warmup,
+                   chains = chains, pars = pars, init = init, verbose = FALSE)
 ```
 
 ## Explorando os resultados
 
-```{r}
+```{r warning=FALSE}
 # Sumario global do objeto stan fit.
-print(output, pars = c("mu_real","phi_real"))
+# print(output, pars = c("beta","theta"))
+print(output, pars = c(paste0("beta[",c(1,2,3),"]"),
+                       paste0("theta[",c(1,150,300),"]")))
+```
+Visualmente, e pela tabela acima (estatística Rhat) indica que as cadeias convergiram.
+Também, na tabela acima, são obtidas as principais estatísticas das estimativas dos parâmetros obtidas pelo algoritmo NUTS.
+
+```{r warning=FALSE}
+rstan::traceplot(output, pars = c("beta","theta[1]", 
+                                  "theta[150]", "theta[300]"))
 ```
 
-```{r}
-rstan::traceplot(output, pars = c("mu_real","phi_real"))
-```
-
-```{r}
+```{r warning=FALSE}
 samp = extract(output)
 ```
 
-```{r}
-par(mfrow = c(1,3))
+```{r histograma-beta, fig.height=5, fig.align='center', fig.width=10, echo=FALSE, fig.cap="\\textbf{Histograma a posteriori dos parâmetros coeficientes betas da regressão poisson estimados}", fig.pos='H'}
 
-{plot(density(samp$mu_real),cex.lab =1, cex.axis= 1,lwd = 2,
-      main = "Densidade a posteriori de mu",col = "blue")
-  abline(v = mu_real,lwd = 2,col ="red")}
+data_beta <- as.data.frame(samp$beta) %>%
+  setNames(c("beta0", "beta1", "beta2"))
 
-{plot(density(samp$phi_real),cex.lab =1, cex.axis= 1, lwd = 2,
-      main= "Densidade a posteriori de phi",col = "blue")
-  abline(v = phi_real, lwd = 2,col ="red" )}
+media <- mean(data_beta$beta0[1001:2000])
+g1 <- data_beta %>% 
+  ggplot(aes(x = beta0)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, 
+                 fill = "#4982B8", color = "white") +
+  geom_density(color = "red", linewidth = 0.7) +
+  geom_vline(xintercept = media, color = "darkblue",     
+             linewidth = 0.8, linetype = "dashed") +
+  annotate(geom = "text", x = Inf, y = Inf,                                         
+           label = paste("Média =", round(media, 2)),
+           color = "darkblue", hjust = 1.1, vjust = 1.5) +
+  labs(x = expression(beta[0]), y = "Densidade") +
+  theme_light()
 
-{plot(density(1/samp$phi_real),cex.lab =1, cex.axis= 1, lwd = 2,
-      main= "Densidade a posteriori de sigma2",col = "blue")
-  abline(v = 1/phi_real, lwd = 2,col ="red" )}
+media <- mean(data_beta$beta1[1001:2000])
+g2 <- data_beta %>% 
+  ggplot(aes(x = beta1)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, 
+                 fill = "#4982B8", color = "white") +
+  geom_density(color = "red", linewidth = 0.7) +
+  geom_vline(xintercept = media, color = "darkblue",     
+             linewidth = 0.8, linetype = "dashed") +
+  annotate(geom = "text", x = Inf, y = Inf,                                         
+           label = paste("Média =", round(media, 2)),
+           color = "darkblue", hjust = 1.1, vjust = 1.5) +
+  labs(x = expression(beta[1]), y = "Densidade") +
+  theme_light()
+
+media <- mean(data_beta$beta2[1001:2000])
+g3 <- data_beta %>% 
+  ggplot(aes(x = beta2)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, 
+                 fill = "#4982B8", color = "white") +
+  geom_density(color = "red", linewidth = 0.7) +
+  geom_vline(xintercept = media, color = "darkblue",     
+             linewidth = 0.8, linetype = "dashed") +
+  annotate(geom = "text", x = Inf, y = Inf,                                         
+           label = paste("Média =", round(media, 2)),
+           color = "darkblue", hjust = 1.1, vjust = 1.5) +
+  labs(x = expression(beta[2]), y = "Densidade") +
+  theme_light()
+
+(g1 | g2 | g3) 
+
 ```
-O gráfico acima mostra a distribuição estimada para os parâmetros $\mu$,$\phi$ e $\sigma2$.
-Para os três parâmetros, o valor real, demarcado pela linha vertical vermelha, está contido na distribuição. Importante dizer que para a média, os valores reais estão próximo da média das respectivas distribuições, indicando que o valor estimado pontual está bem aproximado do valor real.
 
-```{r}
-par(mfrow =c(1,3))
+O histograma acima foi construído para cada parâmetro $\beta$. Os valores estimados foram obtidos realizando o cálculo da média do resultado obtido pelo algorítmo NUTS, retirando os primeiros 1000 valores (warm-up). Em linha vertical tracejada está localizada a estimativa no parâmetro em sua distribuição a posteriori.
 
-{plot(samp$mu_real, type ="l", cex.lab= 1.5, cex.axis = 1.5,
-      xlab ="iterações",ylab = "mu_real", 
-      main ="Traceplot de mu_real", col= "blue")
-  abline(h= mu_real,lwd = 2,col ="red" )}
+```{r histograma-theta, fig.height=5, fig.align='center', fig.width=10, echo=FALSE, fig.cap="\\textbf{Histograma a posteriori das médias thetas de defeitos estimadas para as peças 1, 150 e 300}", fig.pos='H'}
 
-{plot(samp$phi_real, type = "l", cex.lab =1.5, cex.axis = 1.5,
-      xlab ="iterações",ylab = "phi_real",
-      main ="Traceplot de phi_real", col = "blue")
-  abline(h= phi_real, lwd = 2,col ="red" )}
+data_theta <- as.data.frame(samp$theta[,c(1,150,300)]) %>%
+  setNames(c("theta1", "theta150", "theta300"))
 
-{plot(1/samp$phi_real, type = "l", cex.lab =1.5, cex.axis = 1.5,
-      xlab ="iterações",ylab = "sigma2",
-      main ="Traceplot de sigma2", col = "blue")
-  abline(h= 1/phi_real, lwd = 2,col ="red" )}
+media <- mean(data_theta$theta1[1001:2000])
+g1 <- data_theta %>% 
+  ggplot(aes(x = theta1)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, 
+                 fill = "#4982B8", color = "white") +
+  geom_density(color = "red", linewidth = 0.7) +
+  geom_vline(xintercept = media, color = "darkblue",     
+             linewidth = 0.8, linetype = "dashed") +
+  annotate(geom = "text", x = Inf, y = Inf,                                         
+           label = paste("Média =", round(media, 2)),
+           color = "darkblue", hjust = 1.1, vjust = 1.5) +
+  labs(x = expression(theta[1]), y = "Densidade") +
+  theme_light()
+
+media <- mean(data_theta$theta150[1001:2000])
+g2 <- data_theta %>% 
+  ggplot(aes(x = theta150)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, 
+                 fill = "#4982B8", color = "white") +
+  geom_density(color = "red", linewidth = 0.7) +
+  geom_vline(xintercept = media, color = "darkblue",     
+             linewidth = 0.8, linetype = "dashed") +
+  annotate(geom = "text", x = Inf, y = Inf,                                         
+           label = paste("Média =", round(media, 2)),
+           color = "darkblue", hjust = 1.1, vjust = 1.5) +
+  labs(x = expression(theta[150]), y = "Densidade") +
+  theme_light()
+
+media <- mean(data_theta$theta300[1001:2000])
+g3 <- data_theta %>% 
+  ggplot(aes(x = theta300)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, 
+                 fill = "#4982B8", color = "white") +
+  geom_density(color = "red", linewidth = 0.7) +
+  geom_vline(xintercept = media, color = "darkblue",     
+             linewidth = 0.8, linetype = "dashed") +
+  annotate(geom = "text", x = Inf, y = Inf,                                         
+           label = paste("Média =", round(media, 2)),
+           color = "darkblue", hjust = 1.1, vjust = 1.5) +
+  labs(x = expression(theta[300]), y = "Densidade") +
+  theme_light()
+
+(g1 | g2 | g3) 
+
 ```
 
-```{r}
-aux = cbind(samp$mu_real, samp$phi_real, 1/samp$phi_real)
-me = apply(aux, 2, mean) # media
-md = apply(aux, 2, median) # mediana
-sd = apply(aux, 2, sd) # desvio padrao
-parametro = c("mu_real", "phi_real", "sigma2")
-`valor real` = c(mu_real, phi_real, 1/phi_real)
-aux = as.mcmc(aux)
-hpd = HPDinterval(aux)
-tab = bind_cols(parametro, `valor real`, me, md, sd, hpd[,"lower"],hpd[,"upper"])
-colnames(tab) = c("parametro","valor real", "mean", "median","s.d.", "HPD_inf", "HPD_sup")
-knitr::kable(tab, digits = 4, caption = "Tabela de Resumo da Inferência Bayesiana")
+O histograma acima foi construído para as médias de defeitos estimadas $\theta_i$ para as peças i = 1, 150 e 300. Os valores estimados foram obtidos realizando o cálculo da média do resultado obtido pelo algoritmo NUTS, retirando os primeiros 1000 valores (warm-up).
+
+```{r warning=FALSE}
+calc_moda <- function(x) {
+  d <- density(x)
+  d$x[which.max(d$y)]
+}
+
+beta0 <- data_beta$beta0[1001:2000]
+beta1 <- data_beta$beta1[1001:2000]
+beta2 <- data_beta$beta2[1001:2000]
+theta1 <- data_theta$theta1[1001:2000]
+theta150 <- data_theta$theta150[1001:2000]
+theta300 <- data_theta$theta300[1001:2000]
+
+
+tabela <- tibble::tibble(
+  Parâmetro = c("beta0", "beta1", "beta2", "theta1", "theta150", "theta300"),
+  Média = c(mean(beta0), mean(beta1), mean(beta2),
+            mean(theta1), mean(theta150), mean(theta300)),
+  Moda = c(calc_moda(beta0), calc_moda(beta1), calc_moda(beta2), 
+           calc_moda(theta1), calc_moda(theta150), calc_moda(theta300)),
+  Mediana = c(median(beta0), median(beta1), median(beta2),
+              median(theta1), median(theta150), median(theta300)),
+  `Desvio padrão` = c(sd(beta0), sd(beta1), sd(beta2), 
+                      sd(theta1), sd(theta150), sd(theta300)),
+  `HPD 2.5%` = c(
+    HPDinterval(as.mcmc(beta0), prob = 0.95)[1],
+    HPDinterval(as.mcmc(beta1), prob = 0.95)[1],
+    HPDinterval(as.mcmc(beta2), prob = 0.95)[1],
+    HPDinterval(as.mcmc(theta1), prob = 0.95)[1],
+    HPDinterval(as.mcmc(theta150), prob = 0.95)[1],
+    HPDinterval(as.mcmc(theta300), prob = 0.95)[1]
+  ),
+  `HPD 97.5%` = c(
+    HPDinterval(as.mcmc(beta0), prob = 0.95)[2],
+    HPDinterval(as.mcmc(beta1), prob = 0.95)[2],
+    HPDinterval(as.mcmc(beta2), prob = 0.95)[2],
+    HPDinterval(as.mcmc(theta1), prob = 0.95)[2],
+    HPDinterval(as.mcmc(theta150), prob = 0.95)[2],
+    HPDinterval(as.mcmc(theta300), prob = 0.95)[2]
+  )
+)
+
+kable(tabela, digits = 3, 
+      caption = "Tabela de Resumo da Inferência Bayesiana para os parâmetros
+      beta e theta estimados")
 ```
 
-Com base nos resultados, o modelo apresentou um desempenho satisfatório na estimação dos parâmetros. Para o primeiro parâmetro, o ajuste foi bem-sucedido, pois o valor real (10.0) está  contido no intervalo de credibilidade de 95% HPD. Para o segundo parâmetro, o ajuste foi bem-sucedido também, pois o valor real (2.0) está  contido no intervalo de credibilidade de 95% HPD. O mesmo vale para o parâmetro $\sigma2$.
+A tabela apresenta as estatísticas de resumo das distribuições a posteriori para os parâmetros do modelo. Observa-se uma alta consistência nas estimativas de tendência central, com valores muito próximos para a média, moda e mediana em todos os parâmetros, sugerindo distribuições posteriores simétricas. 
+
+A hipótese nula $\beta_i$ = 0 é rejeitada quando analisados os intervalos de credibilidade, isto é, com 95% de probabilidade o valor verdadeiro de $\beta_i$ está contido no intervalo proposto e, como ele não inclui zero, isso significa dizer que as covariáveis maquinário novo/não novo e anos de experiência são significativas para explicar o número de falhas. 
+
+Especificamente, $\beta_1$ tem relação positiva sobre o número de falhas, isto é, se a máquina for nova, espera-se 6,9 $(exp^{\beta_1})$ vezes mais defeitos se comparado com a máquina velha. Já para $\beta_2$, o seu impacta negativamente no número de falhas, isto é, quanto mais anos de experiência tem o operador da máquina, espera-se menor o número de falhas nas peças. A cada dez anos de experiência, o número de falhas esperados é multiplicado por 0.214 $(exp^{\beta_2})$. 
+
+As médias de falhas esperadas para as peças 1, 150 e 300 estão expressas na tabela em theta1, theta150 e theta300 respectivamente. Também, observa-se que há mais certeza nas estimativas de beta1, theta1 e theta300 por apresentarem menor desvio padrão.

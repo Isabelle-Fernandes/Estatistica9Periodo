@@ -3,37 +3,39 @@
 
 data{
   int<lower=1> n;
-  vector[n] y;
-  real m;
-  real<lower=0> v;
-  real<lower=0> a;
-  real<lower=0> b;
+  int<lower=1> q;
+  int<lower=0> y[n];
+  matrix[n,q] x;
+  vector[q] m_beta;
+  matrix[q,q] S_beta;
 }
 
  // Bloco de declaração de parâmetros
 
 parameters{
-  real mu_real;
-  real<lower=0> phi_real;
+  vector[q] beta;
 }
  
 // Bloco de parâmetros transformados
 
 transformed parameters{
-  real sigma2;
-  sigma2 = 1/phi_real;
+  vector[n] theta;
+  for(i in 1:n){
+    theta[i] = exp(x[i,] * beta);
+  }
 }
 
-// Bloco do modelo.
+// Bloco do modelo
 
 model{
   // Verossimilhança
-  for(i in 1:n){y[i] ~ normal(mu_real, sqrt(1/phi_real));}
+  for(i in 1:n){
+    y[i] ~ poisson(theta[i]);
+  }
   
-  // Priori 1: 
-  mu_real ~ normal(m,v);
-  
-  // Priori 2: 
-  phi_real ~ gamma(a,b);
+  // Priori 1:  Normal Multivariada com vetor de medias e matriz de covariâncias
+  beta ~ multi_normal(m_beta, S_beta);
 }
 
+//
+//
