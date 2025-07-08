@@ -8,6 +8,7 @@
 #include <cstring>
 #include <string>
 #include <cstdio>
+#include <cstdlib>
 
 int main(int argc, char* argv[]) {
     
@@ -38,6 +39,7 @@ int main(int argc, char* argv[]) {
             char tipo_evento_str[3] = {0};
             int id_pacote;
             arquivo_entrada >> tipo_evento_str >> id_pacote;
+            Evento e;
             
             // Leitura e Criacao do Evento
             if (strcmp(tipo_evento_str, "RG") == 0) {
@@ -62,49 +64,58 @@ int main(int argc, char* argv[]) {
             // Armazenamento e Indexacao
             banco.addEvento(e);
             int indiceDoNovoEvento = banco.tamanho - 1;
-            Evento* ponteiroEvento = &banco.eventos[indiceDoNovoEvento];
+            Evento* ponteiroEvento = banco.eventos[indiceDoNovoEvento];
 
             // Atualiza o Indice de Pacotes
-            indicePacotes.insere(id_pacote, indiceDoNovoEvento, tempo);
+            indicePacotes.insere(id_pacote, indiceDoNovoEvento);
 
             // Atualiza o Indice de Clientes
             Fila<int>* historico = indicePacotes.busca(id_pacote);
             if (historico != nullptr) {
                 int indiceRG = historico->primeiro->indice;
-                indiceClientes.insere(banco.eventos[indiceRG].cliente_remetente, ponteiroEvento);
-                indiceClientes.insere(banco.eventos[indiceRG].cliente_destinatario, ponteiroEvento);
+                indiceClientes.insere(banco.eventos[indiceRG]->cliente_remetente, ponteiroEvento);
+                indiceClientes.insere(banco.eventos[indiceRG]->cliente_destinatario, ponteiroEvento);
             }
-
+            
         } else if (strcmp(identificador_entrada, "CL") == 0) {
+
             char nome_str_c[100] = {0};
             arquivo_entrada >> nome_str_c;
             std::string nome_consulta(nome_str_c);
 
-            printf("%06d CL %s\n", tempo, nome_str_c);
-
+            printf("%07d CL %s\n", tempo, nome_str_c);
+        
+            // busca pelo cliente. Se ele nao existir, 'historicoCliente' sera nullptr.
             ListaPacotesCliente* historicoCliente = indiceClientes.busca(nome_consulta);
+        
             if (historicoCliente != nullptr) {
                 historicoCliente->imprimeResultados(tempo);
-            } else {
-                printf("0\n");
+            } else {   
+                printf("0\n"); // Se o cliente nao foi encontrado
             }
-
-        } else if (strcmp(identificador_entrada, "PC") == 0) {
+        
+            } else if (strcmp(identificador_entrada, "PC") == 0) {
             int id_consulta;
             arquivo_entrada >> id_consulta; 
 
             Fila<int>* indices = indicePacotes.busca(id_consulta);
 
             printf("%06d PC %03d\n", tempo, id_consulta);
-            std::cout << indices->tamanho << std::endl;
-            NoFila<int>* atual = indices->primeiro;
+            
+            if (indices != nullptr && !indices->estahVazia()) {
+                std::cout << indices->tamanho << std::endl;
+                NoFila<int>* atual = indices->primeiro;
 
-            for(int i = 0; i < indices->tamanho; i++){
-                banco.eventos[atual->indice].imprime();
-                atual = atual->prox;
+                for(int i = 0; i < indices->tamanho; i++){
+                    banco.eventos[atual->indice]->imprime();
+                    atual = atual->prox;
+                }
+
+            } else {
+                printf("0\n"); // Se o pacote nao foi encontrado
             }
         }
     }
-
     return 0;
+
 }

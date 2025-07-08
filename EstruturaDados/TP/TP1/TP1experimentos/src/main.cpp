@@ -49,7 +49,7 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
     ordenadorUniversal.Ordena(vetor, tam, limiteParticao, limiteQuebras, QUEBRA);
     auto end = std::chrono::high_resolution_clock::now();
-    auto tempo_nano = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); //pego em nanosegundos
+    auto tempo_nano = std::chrono::duration_cast<std::chrono::milissegundos>(end - start).count(); //pego em nanosegundos
     long double tempo_ms_ordenador = tempo_nano / 1e6; // converto para milissegundos
     int chamada_ordenador = vetor.chamadas; // pego o número de chamadas do ordenador universal
     int comparacoes_ordenador = vetor.comparacoes; // pego o número de comparações do ordenador universal
