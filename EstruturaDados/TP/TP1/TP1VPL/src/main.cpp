@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
     arquivo >> parametroB;
     arquivo >> parametroC;
     arquivo >> tam;
-    
+
     Vetor vetor = Vetor(tam);
     for (int i = 0; i < tam; ++i) {
         arquivo >> vetor.vetor[i]; 
